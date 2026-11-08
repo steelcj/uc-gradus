@@ -1,3 +1,5 @@
+> Historical. Superseded by README v0.3.0.
+
 mermaid
 flowchart TD
  A["Laptop: generate production keypairs<br/>gradus-prod-admin-id_ed25519 + gradus-prod-deploy-id_ed25519<br/>+ gradus-raw-initial-id_ed25519 (throwaway)"] --> B["Laptop: generate admin password hash<br/>mkpasswd -m yescrypt"]

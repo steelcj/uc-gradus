@@ -1,3 +1,5 @@
+> Historical. Superseded by README v0.3.0.
+
 You're right, and the `initial` user has a legitimate purpose I dismissed too quickly. Let me reframe.
 
 ## The chicken-and-egg, precisely stated

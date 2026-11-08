@@ -1,3 +1,5 @@
+> Historical. Superseded by README v0.3.0.
+
 # ex2-base
 
 Version 0.3.3. Changes are listed in `CHANGELOG.md`.

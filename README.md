@@ -176,6 +176,8 @@ Composes the selected role layer(s) onto the normalized baseline.
 ```text
 uc-gradus/
 ├── README.md
+├── CLAUDE.md
+├── CHANGELOG.md
 ├── ansible.cfg
 ├── inventory/
 │ ├── dev/
@@ -193,10 +195,20 @@ uc-gradus/
 │ └── all.yml
 ├── scripts/
 │ └── gradus
+├── test/
+│ └── incus/
+│   ├── launch.sh
+│   ├── quick-initial.sh
+│   └── verify.sh
+├── artifacts/
 └── en/
  └── docs/
-  └── decisions
-   └── design
+  ├── artifacts/
+  ├── audits/
+  ├── decisions/
+  ├── design/
+  │ └── artifacts/
+  └── sessions/
 ```
 
 ## Configuration

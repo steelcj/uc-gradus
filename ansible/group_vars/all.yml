@@ -12,7 +12,7 @@ ssh_port: 22
 admin_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG8SAPdqr+DK1NZ/iP/JDRVl2kBZ5UoUjvAtSBac4qSZ admin@laptop"
 deploy_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC0706vZ9wovUj2+HEPf0x9Cnqaga27BNdnoV/UCX9V9 deploy@ci"
 
-# Private keys on the laptop for each phase. base.yml connects as admin with
+# Private keys on the laptop for each phase. RESOLVE-base.yml connects as admin with
 # admin_ssh_key; bootstrap.yml overrides this with initial_ssh_key.
 #initial_ssh_key: ~/.ssh/gradus-raw-initial-id_ed25519
 #admin_ssh_key: ~/.ssh/gradus-prod-admin-id_ed25519
@@ -28,12 +28,12 @@ ansible_ssh_private_key_file: "{{ admin_ssh_key }}"
 #     admin_password_hash: '$y$...'
 admin_password_hash: "REPLACE_WITH_YESCRYPT_HASH"
 
-# Temporary user from docs/initial-setup.md. base.yml deletes it once
+# Temporary user from docs/initial-setup.md. RESOLVE-base.yml deletes it once
 # it is no longer logged in. Set to "" if you did not use one.
 bootstrap_user: initial
 
 # Permanent users, created by robertdebock.users in bootstrap.yml and kept
-# converged by base.yml. The deploy key is not listed here on purpose:
+# converged by RESOLVE-base.yml. The deploy key is not listed here on purpose:
 # tasks/deploy_access.yml writes it root-owned with rrsync restrictions.
 users_groups: []
 users:

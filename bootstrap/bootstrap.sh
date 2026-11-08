@@ -3,7 +3,7 @@
 # accept cloud-init user-data. Run as root, from the provider console or a
 # first root SSH session. It does the same job as cloud-init/user-data.yaml:
 # creates the admin user with its key, then locks down sshd.
-# After this, run ansible/base.yml as the admin user.
+# After this, run ansible/RESOLVE-base.yml as the admin user.
 set -eu
 
 ADMIN_USER="admin"

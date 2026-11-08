@@ -1,5 +1,5 @@
 ---
-# ansible-galaxy install -r requirements.yml
+# ansible-galaxy install -r RESOLVE-requirements.yml
 # Roles come straight from GitHub at a pinned release tag, so the exact code is
 # auditable and does not depend on Galaxy being up.
 roles:

@@ -1,3 +1,5 @@
+> Historical. Superseded by README v0.3.0.
+
 **You**
 
 Let do an initial iteration on these instructions: We are building a "short stack" for hosting static websites. Testing takes place in local incus containers (for Linux) and local vm for Windows (not required for this project). The incus containers are running btrfs in order to leverage machine like speeds and advantages of COW. The target production host uses KVM. In en/docs we have outlined the process using a mermaid markdown flowchart. Thinking in terms of start (setup required resources, to finsh, deploy multiple production website using caddy on as light and secure of a host OS as possible. Lets make sure that our flowcharts cover everything from start to finish first, once this is confirmed we will transform the flowcharts into return linked "menu items" that take the user to the correct location in the documentation. More details on this once we are certain that our flowchart cover the breadth of the processes. Let's recreate any modified documents as new version using <slug>-vN.N.N.md so a modified process-flowchart.md document is named process-flowchart-v0.1.0.md

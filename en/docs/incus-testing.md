@@ -14,7 +14,7 @@ Every command below runs on flow, from the repo root unless it says `cd ansible`
 
 A system container is the default. It starts in seconds and is the right tool for iterating on the playbooks. It shares flow's kernel, which changes a few things:
 
-- `systemd-timesyncd` and `apparmor.service` skip themselves in containers through their own systemd conditions, since the host owns the clock and the AppArmor policy. `base.yml` detects a container and only enables those two units there, rather than starting them. The AppArmor audit check reads the host kernel, so it still passes on flow.
+- `systemd-timesyncd` and `apparmor.service` skip themselves in containers through their own systemd conditions, since the host owns the clock and the AppArmor policy. `RESOLVE-base.yml` detects a container and only enables those two units there, rather than starting them. The AppArmor audit check reads the host kernel, so it still passes on flow.
 - nftables runs in the container's own network namespace, but the kernel modules are flow's. A container cannot load them itself (see the host preparation below).
 - An unattended-upgrades reboot restarts only the container.
 - There is no provider console. `incus exec ex2-test -- bash` stands in for it, and like Ex2's console it does not depend on SSH at all.
@@ -130,7 +130,7 @@ install -d -m 0700 ~/.config/ex2
 Install the roles once, from `ansible/`:
 
 ```sh
-ansible-galaxy install -r requirements.yml
+ansible-galaxy install -r RESOLVE-requirements.yml
 ```
 
 ## Create the stand-in VPS
@@ -170,7 +170,7 @@ Follow `docs/initial-setup.md` from "As root: create the initial user", with thr
 ssh -i ~/.ssh/gradus-raw-initial-id_ed25519 initial@<ipv4> true && echo ok    # must print ok before Ansible will work
 cd ansible
 ansible-playbook -i ../test/incus/inventory.ini bootstrap.yml -u initial -K --ask-vault-pass
-ansible-playbook -i ../test/incus/inventory.ini base.yml -K --ask-vault-pass
+ansible-playbook -i ../test/incus/inventory.ini RESOLVE-base.yml -K --ask-vault-pass
 ```
 
 `-K` asks for the server `initial` user's password (for sudo), then `--ask-vault-pass` for the vault password. The inventory names the host `ex2-test`; if your output says `web1`, you left out `-i ../test/incus/inventory.ini` and are aiming at the real-server inventory.
@@ -299,7 +299,7 @@ Every line should be `ok`, `loopback` or `dhcp-client`; any `UNEXPECTED` line is
 
 ### Idempotence
 
-Run `base.yml` a second time, with the same command. The recap should show `changed=0`. Anything that changes on every run is a bug in the playbook, and on the real server it would hide real drift.
+Run `RESOLVE-base.yml` a second time, with the same command. The recap should show `changed=0`. Anything that changes on every run is a bug in the playbook, and on the real server it would hide real drift.
 
 ansible command goes here:
 
@@ -416,7 +416,7 @@ That is the placeholder address in `ansible/inventory.ini`, which is for the rea
 
 ### Too many authentication failures
 
-ssh offered every key in your agent before the right one, and sshd hung up. `ansible.cfg` sets `IdentitiesOnly=yes`, and each playbook names its own key (`initial_ssh_key` for `bootstrap.yml`, `admin_ssh_key` for `base.yml`), so this only appears with an older copy of the repo or a plain `ssh` without `-o IdentitiesOnly=yes`. `ssh-add -l` shows how many keys the agent offers.
+ssh offered every key in your agent before the right one, and sshd hung up. `ansible.cfg` sets `IdentitiesOnly=yes`, and each playbook names its own key (`initial_ssh_key` for `bootstrap.yml`, `admin_ssh_key` for `RESOLVE-base.yml`), so this only appears with an older copy of the repo or a plain `ssh` without `-o IdentitiesOnly=yes`. `ssh-add -l` shows how many keys the agent offers.
 
 ### Asked for a password, then Permission denied
 
@@ -437,7 +437,7 @@ incus snapshot restore ex2-test fresh
 incus file push ~/.ssh/gradus-raw-initial-id_ed25519.pub ex2-test/root/.ssh/authorized_keys --mode 0600 --uid 0 --gid 0
 ```
 
-### base.yml cannot connect as admin
+### RESOLVE-base.yml cannot connect as admin
 
 `admin` only exists once `bootstrap.yml` has succeeded. Run them in order.
 
@@ -455,7 +455,7 @@ It comes from `robertdebock.bootstrap`, which still reads facts such as `ansible
 
 ### Audit fails on systemd-resolve, port 5355
 
-The listener audit at the end of `base.yml` found systemd-resolved answering LLMNR, a local-network name protocol, on all interfaces. The firewall already drops it, but the base promises no public listeners beyond sshd and Caddy, so from version 0.3.2 `base.yml` turns LLMNR and multicast DNS off. Its loopback DNS stub on `127.0.0.53` and `127.0.0.54` stays, and the audit lists it as `loopback`.
+The listener audit at the end of `RESOLVE-base.yml` found systemd-resolved answering LLMNR, a local-network name protocol, on all interfaces. The firewall already drops it, but the base promises no public listeners beyond sshd and Caddy, so from version 0.3.2 `RESOLVE-base.yml` turns LLMNR and multicast DNS off. Its loopback DNS stub on `127.0.0.53` and `127.0.0.54` stays, and the audit lists it as `loopback`.
 
 Confirm on the server:
 
@@ -494,7 +494,7 @@ The nftables module steps were run inside the test instance. Run them on flow, a
 - TLS certificates: Caddy cannot get a Let's Encrypt certificate for a private address. The default Caddyfile serves plain HTTP on port 80, which is what `verify.sh` checks; to test HTTPS locally, use `tls internal` in a site block.
 - Provider features: snapshots, a provider firewall, reverse DNS and IPv6 allocation, which are the open questions in the README.
 
-To rehearse the cloud-init route instead of the manual one, fill in the placeholders in `cloud-init/user-data.yaml` and launch the cloud variant with it attached. Skip `launch.sh` for this, since cloud-init creates `admin` itself, then run only `base.yml` with an inventory pointing at the new address:
+To rehearse the cloud-init route instead of the manual one, fill in the placeholders in `cloud-init/user-data.yaml` and launch the cloud variant with it attached. Skip `launch.sh` for this, since cloud-init creates `admin` itself, then run only `RESOLVE-base.yml` with an inventory pointing at the new address:
 
 ```sh
 incus launch images:debian/13/cloud ex2-ci -c limits.memory=1GiB \

@@ -1,15 +1,6 @@
-# UC-Gradus — Static Website Hosting Pipeline
+> Historical. Superseded by README v0.3.0.
 
-> *One artifact, ascending trust.*
-
-## Organization
-
-**Universal Cake** — umbrella brand for all projects.
-
-| Project | Purpose |
-|---------|---------|
-| UC-Gradus | Static website hosting pipeline (this project) |
-| Cake Metrics | Monitoring & alerting |
+# Short Stack — Static Website Hosting
 
 ## Objective
 
@@ -26,13 +17,6 @@ in production, with a fast local testing environment using Incus + btrfs.
 | DNS | Namecheap (near-term) | Caddy's built-in ACME | Automated TLS issuance/renewal |
 | Site builder | Local machine | Eleventy (default), Hugo (supported) | Outputs prebuilt HTML in `site/` |
 | Deployment | Local → server | rsync (with permission handling) | Incremental, auditable, simple |
-
-## Core Principle
-
-**Build once. Validate. Promote. Never rebuild.**
-
-The same verified artifact moves through every environment. Each stage adds
-trust. An explicit gate authorizes promotion to the next level.
 
 ## Multi-Tenancy Model
 
@@ -51,9 +35,9 @@ Each site is independently built and deployed via rsync.
 |-------|-------|
 | 1. Provision | Storage pools, base images, networking (Incus bridged; KVM VM) |
 | 2. Harden | Minimal Debian 13, SSH, firewall, user/group baseline |
-| 3. Serve | Caddy install, multi-site config, DNS gate, ACME/TLS validation |
+| 3. Serve | Caddy install, multi-site config, ACME/TLS validation |
 | 4. Deploy | Build locally → rsync `site/` → permissions → smoke test |
-| 5. Operate | Snapshots (testing), manual updates, cert alerting, monitoring (TBD) |
+| 5. Operate | Snapshots (testing), manual updates, backup, monitoring (TBD) |
 
 ## Testing Strategy
 
@@ -76,20 +60,21 @@ Priority: get things running safely ASAP. Harden the OS strategy later.
 
 ## Monitoring
 
-TBD — pending definition of Cake Metrics. Flowcharts include a
+TBD — pending definition of Universal Cake Metrics. Flowcharts include a
 placeholder node.
 
-## Naming & Conventions
+## Workflow
 
-| Convention | Pattern | Example |
-|------------|---------|---------|
-| Project name (prose) | UC-Gradus | "UC-Gradus handles deployment" |
-| Project name (repos, slugs) | uc-gradus | `universal-cake/uc-gradus` |
-| CLI command | `gradus` | `gradus deploy`, `gradus snapshot` |
-| Document filenames | `<slug>-vN.N.N.md` | `process-flowchart-v0.1.1.md` |
-| Doc versioning | Bump patch/minor per edit; graduate to v1.0.0 when stable | |
-| Flowcharts | Mermaid inside Markdown | |
-| Decision records | `decision-<topic>-vN.N.N.md` in `en/docs/decisions/` | |
-| Language | English docs in `en/docs/` | |
+1. ✅ Draft Mermaid flowcharts covering every lifecycle phase
+2. Review for completeness (breadth check) ← **you are here**
+3. Convert confirmed flowcharts into linked "menu items" pointing into docs
+4. Each flowchart lives in `en/docs/`
 
-## Directory Structure
+## Conventions
+
+- **Versioning:** Modified documents are recreated as `<slug>-vN.N.N.md`.
+ Never overwrite the original.
+- **Flowchart format:** Mermaid inside Markdown.
+- **Language:** English docs in `en/docs/`.
+- **Naming:** Site directories use domain-with-dashes
+ (`chris-steel-com`, not `chris.steel.com`).

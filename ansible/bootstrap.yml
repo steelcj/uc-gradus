@@ -2,11 +2,11 @@
 # First Ansible run, as the temporary "initial" user (see docs/initial-setup.md).
 # Sets the umask policy, then creates the permanent admin and deploy users.
 #
-#   ansible-galaxy install -r requirements.yml
+#   ansible-galaxy install -r RESOLVE-requirements.yml
 #   ansible-playbook bootstrap.yml -u initial -K
 #
-# Afterwards, confirm admin can log in and sudo, then run base.yml as admin.
-# base.yml locks SSH to admin and deploy and deletes the initial user.
+# Afterwards, confirm admin can log in and sudo, then run RESOLVE-base.yml as admin.
+# RESOLVE-base.yml locks SSH to admin and deploy and deletes the initial user.
 
 - name: Bootstrap as the initial user
   hosts: web
@@ -54,7 +54,7 @@
         install_recommends: false
 
     - name: Umask policy, before any permanent user exists
-      ansible.builtin.include_tasks: tasks/umask.yml
+      ansible.builtin.include_tasks: tasks/RESOLVE-umask.yml
 
     - name: Permanent users
       ansible.builtin.include_role:
@@ -68,4 +68,4 @@
         msg:
           - "Test now, keeping this initial session open:"
           - "  ssh -i ~/.ssh/gradus-prod-admin-id_ed25519 {{ admin_user }}@{{ ansible_host }} sudo -v"
-          - "Then run: ansible-playbook base.yml -K"
+          - "Then run: ansible-playbook RESOLVE-base.yml -K"

@@ -20,7 +20,7 @@ flowchart TD
     I --> F
     H -- "Yes" --> J["Snapshot, if Ex2 offers it"]
     J --> K["Deploy sites<br/>rsync as deploy into /srv/sites"]
-    K --> L["Ongoing<br/>re-run base.yml to correct drift,<br/>unattended-upgrades for security"]
+    K --> L["Ongoing<br/>re-run RESOLVE-base.yml to correct drift,<br/>unattended-upgrades for security"]
 ```
 
 ## Preparing flow
@@ -30,7 +30,7 @@ Done once, and again when the Ansible pin or the keys change.
 ```mermaid
 flowchart TD
     A["Activate or build the venv<br/>./tools/make-ansible-venv.sh"] --> B[". ~/.venvs/ansible/current/bin/activate"]
-    B --> C["Install roles<br/>ansible-galaxy install -r requirements.yml"]
+    B --> C["Install roles<br/>ansible-galaxy install -r RESOLVE-requirements.yml"]
     C --> D["Make three keypairs<br/>gradus-raw-initial-id_ed25519, gradus-prod-admin-id_ed25519, gradus-prod-deploy-id_ed25519"]
     D --> E["Public keys into<br/>group_vars/all.yml"]
     E --> F["Admin password hash<br/>mkpasswd -m yescrypt"]
@@ -63,7 +63,7 @@ flowchart TD
     H -- "No" --> T["Troubleshooting in<br/>docs/incus-testing.md"]
     T --> G
     H -- "Yes" --> I["Log out every initial session"]
-    I --> J["base.yml as admin<br/>-K --ask-vault-pass"]
+    I --> J["RESOLVE-base.yml as admin<br/>-K --ask-vault-pass"]
     J --> J1["Packages, Caddy from backports"]
     J1 --> J2["nftables before sshd"]
     J2 --> J3["sshd hardening<br/>AllowUsers admin deploy"]
@@ -86,7 +86,7 @@ flowchart TD
     C -- "No" --> T["Troubleshooting<br/>check sshguard block,<br/>IdentitiesOnly, whitelist"]
     T --> A
     C -- "Yes" --> D["audit-listeners.sh as admin"]
-    D --> E["Run base.yml again"]
+    D --> E["Run RESOLVE-base.yml again"]
     E --> F{"changed=0?"}
     F -- "No" --> G["Fix the task that<br/>changes every run"]
     G --> E

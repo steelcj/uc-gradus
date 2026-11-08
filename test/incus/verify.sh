@@ -1,6 +1,6 @@
 #!/bin/sh
 # Checks the finished server from the outside, the way the internet sees it.
-# Run after base.yml. Works against the Incus test instance or the real VPS.
+# Run after RESOLVE-base.yml. Works against the Incus test instance or the real VPS.
 #
 # Usage: test/incus/verify.sh [ipv4] [ipv6]
 # With no arguments, reads the address from test/incus/inventory.ini.

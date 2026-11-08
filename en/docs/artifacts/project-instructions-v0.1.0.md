@@ -1,3 +1,5 @@
+> Historical. Superseded by README v0.3.0.
+
 # Short Stack — Static Website Hosting
 
 ## Objective

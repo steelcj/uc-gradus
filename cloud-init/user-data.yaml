@@ -1,6 +1,6 @@
 #cloud-config
 # First-boot identity only: hostname, admin user, admin key, sshd lockdown.
-# Everything else is done by ansible/base.yml so it can be re-run and audited.
+# Everything else is done by ansible/RESOLVE-base.yml so it can be re-run and audited.
 # Use this only if Ex2 accepts cloud-init user-data; otherwise use bootstrap/bootstrap.sh.
 
 hostname: web1

@@ -13,6 +13,9 @@ changes:
  - "Separated laptop prerequisites from host prerequisites"
  - "Removed duplicate SSH key injection content"
 ---
+
+> Historical. Superseded by README v0.3.0.
+
 # Incus Dev Environment Design
 
 Version 0.1.1 (2026-11-07). Companion to `ansible-dev-design-v0.1.3.md`.

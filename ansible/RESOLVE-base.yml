@@ -2,8 +2,8 @@
 # Minimal, secure base for a static-site server on Debian 13 (trixie).
 # Idempotent: safe to re-run at any time to correct drift.
 #
-#   ansible-playbook base.yml --check --diff -K   # preview
-#   ansible-playbook base.yml -K                  # apply
+#   ansible-playbook RESOLVE-base.yml --check --diff -K   # preview
+#   ansible-playbook RESOLVE-base.yml -K                  # apply
 #
 # Keep the provider console open in a browser tab the first time you run it.
 
@@ -84,7 +84,7 @@
     # Umask policy and accounts (same as bootstrap.yml, kept converged here)
 
     - name: Umask policy
-      ansible.builtin.include_tasks: tasks/umask.yml
+      ansible.builtin.include_tasks: tasks/RESOLVE-umask.yml
 
     - name: Permanent users
       ansible.builtin.include_role:
@@ -102,7 +102,7 @@
 
     - name: nftables ruleset
       ansible.builtin.template:
-        src: nftables.conf.j2
+        src: RESOLVE-nftables.conf.j2
         dest: /etc/nftables.conf
         mode: "0755"
         validate: /usr/sbin/nft -c -f %s
@@ -118,7 +118,7 @@
 
     - name: sshd hardening drop-in
       ansible.builtin.template:
-        src: sshd-hardening.conf.j2
+        src: RESOLVE-sshd-hardening.conf.j2
         dest: /etc/ssh/sshd_config.d/10-hardening.conf
         mode: "0644"
         validate: /usr/sbin/sshd -t -f %s
@@ -152,13 +152,13 @@
 
     - name: Periodic apt runs
       ansible.builtin.copy:
-        src: 20auto-upgrades
+        src: RESOLVE-20auto-upgrades
         dest: /etc/apt/apt.conf.d/20auto-upgrades
         mode: "0644"
 
     - name: unattended-upgrades policy
       ansible.builtin.template:
-        src: 52unattended-upgrades-local.j2
+        src: RESOLVE-52unattended-upgrades-local.j2
         dest: /etc/apt/apt.conf.d/52unattended-upgrades-local
         mode: "0644"
 

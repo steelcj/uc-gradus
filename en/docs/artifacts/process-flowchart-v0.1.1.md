@@ -1,6 +1,15 @@
+> Historical. Superseded by README v0.3.0.
+
 # Process Flowchart — Short Stack (Master Overview)
 
-Full lifecycle from bare metal to deployed multi-site static hosting.
+Full lifecycle from bare host to deployed multi-site static hosting.
+
+## Changelog
+
+| Version | Date | Change |
+|---------|------|--------|
+| 0.1.0 | 2026-11-06 | Initial draft |
+| 0.1.1 | 2026-11-06 | Added DNS record mgmt gate, cert renewal alerting, zero-downtime confirmation note; removed Known Gaps (all resolved) |
 
 ## Legend
 
@@ -9,6 +18,7 @@ Full lifecycle from bare metal to deployed multi-site static hosting.
 | `[rect]` | Action step |
 | `{diamond}` | Decision / gate |
 | `([rounded])` | Start / end terminal |
+| `[[double]]` | References external document |
 
 ## Master Flowchart
 
@@ -44,26 +54,30 @@ flowchart TD
 
  P2H --> P3
 
- subgraph P3["Phase 3 — Install & Configure Caddy"]
+ subgraph P3["Phase 3 — DNS, TLS & Caddy"]
  direction TB
  P3A[Install Caddy from official repo] --> P3B[Create site directory<br/>structure: /srv/sites/]
  P3B --> P3C[Write Caddyfile:<br/>multi-site host routing]
- P3C --> P3D[Configure ACME email,<br/>DNS provider if needed]
- P3D --> P3E[Set file permissions:<br/>deploy group owns site dirs]
- P3E --> P3F[Start Caddy, enable systemd unit]
- P3F --> P3G{TLS issued<br/>successfully?}
- P3G -- Yes --> P3H[Snapshot: golden-caddy]
- P3G -- No --> P3I[Check DNS propagation,<br/>port 80 reachability]
- P3I --> P3G
+ P3C --> P3D[[DNS record management<br/>— manual Namecheap<br/>add A/AAAA/CNAME records]]
+ P3D --> P3E{DNS propagated?<br/>dig +short resolves?}
+ P3E -- Yes --> P3F[Configure ACME email,<br/>trigger TLS issuance]
+ P3E -- No --> P3G[Wait / flush,<br/>re-check]
+ P3G --> P3E
+ P3F --> P3H[Set file permissions:<br/>deploy group owns site dirs]
+ P3H --> P3I[Start Caddy, enable systemd unit]
+ P3I --> P3J{TLS issued<br/>successfully?}
+ P3J -- Yes --> P3K[Snapshot: golden-caddy]
+ P3J -- No --> P3L[Debug: port 80 reachable?<br/>DNS correct? Rate-limited?]
+ P3L --> P3E
  end
 
- P3H --> P4
+ P3K --> P4
 
  subgraph P4["Phase 4 — Deploy Sites"]
  direction TB
  P4A[Build site locally:<br/>eleventy / hugo → site/] --> P4B[Pre-deploy check:<br/>lint, broken links?]
  P4B --> P4C{Checks<br/>pass?}
- P4C -- Yes --> P4D[rsync site/ → /srv/sites/<domain>/site/]
+ P4C -- Yes --> P4D[rsync site/ → /srv/sites/domain/site/]
  P4C -- No --> P4E[Fix build errors]
  P4E --> P4A
  P4D --> P4F[Fix ownership/perms<br/>post-rsync]
@@ -79,12 +93,12 @@ flowchart TD
  subgraph P5["Phase 5 — Operate"]
  direction TB
  P5A[Incus: snapshot after<br/>each successful deploy] --> P5B[Manual apt update/upgrade<br/>on schedule]
- P5B --> P5C[Monitor: TBD<br/>Universal Cake Metrics]
- P5C --> P5D{Issue detected?}
- P5D -- Yes --> P5E[Rollback to snapshot<br/>or investigate]
- P5D -- No --> P5F[Continue]
- P5E --> P5C
+ P5B --> P5C[[Cert renewal monitoring:<br/>alert on ACME failure]]
+ P5C --> P5D[Monitor: TBD<br/>Universal Cake Metrics]
+ P5D --> P5E{Issue detected?}
+ P5E -- Yes --> P5F[Rollback to snapshot<br/>or investigate]
+ P5E -- No --> P5G[Continue]
+ P5F --> P5D
  end
 
- P5F --> END_NODE([Steady-state operation])
-```
+ P5G --> END_NODE([Steady-state operation])

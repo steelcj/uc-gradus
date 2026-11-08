@@ -1,3 +1,5 @@
+> Historical. Superseded by README v0.3.0.
+
 # process-flowchart-v0.4.0-production
 
 

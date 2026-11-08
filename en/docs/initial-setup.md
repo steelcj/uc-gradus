@@ -1,6 +1,6 @@
 # Initial manual setup
 
-This is the first session on a fresh Ex2 Debian 13 VPS. The manual part is short: root creates a temporary `initial` user, and `initial` shuts root out. From there Ansible does the work. `ansible/bootstrap.yml`, run as `initial`, prepares the host with the `robertdebock.bootstrap` role, sets the umask policy, and creates the permanent `admin` and `deploy` users with the `robertdebock.users` role. `ansible/base.yml`, run as `admin`, hardens the rest, restricts SSH to `admin` and `deploy`, and deletes `initial`.
+This is the first session on a fresh Ex2 Debian 13 VPS. The manual part is short: root creates a temporary `initial` user, and `initial` shuts root out. From there Ansible does the work. `ansible/bootstrap.yml`, run as `initial`, prepares the host with the `robertdebock.bootstrap` role, sets the umask policy, and creates the permanent `admin` and `deploy` users with the `robertdebock.users` role. `ansible/RESOLVE-base.yml`, run as `admin`, hardens the rest, restricts SSH to `admin` and `deploy`, and deletes `initial`.
 
 The appendix has the same umask and user steps as plain commands, for doing it without Ansible or checking what the playbook did.
 
@@ -72,7 +72,7 @@ Confirm that your prompt now starts with `(ansible)`:
 Install the ansible requirements:
 
 ```bash
-ansible-galaxy install -r requirements.yml     # roles pinned to release tags on GitHub
+ansible-galaxy install -r RESOLVE-requirements.yml     # roles pinned to release tags on GitHub
 ```
 
 ### Add your public keys to ansible `group_vars/all.yml`
@@ -247,7 +247,7 @@ ansible-playbook bootstrap.yml -u initial -K --ask-vault-pass
 It does three things, in this order:
 
 - `robertdebock.bootstrap` makes sure `python3`, `sudo`, `gnupg` and `python3-apt` are present, so the rest of Ansible works on a minimal image. The role assumes it connects as root, so `bootstrap.yml` sets `bootstrap_become: true` to make its package install use sudo.
-- `tasks/umask.yml` sets a `027` default umask and `0700` home directories. This has to happen before any permanent user exists, because `useradd` reads these values when it makes their homes. Details are in the appendix.
+- `tasks/RESOLVE-umask.yml` sets a `027` default umask and `0700` home directories. This has to happen before any permanent user exists, because `useradd` reads these values when it makes their homes. Details are in the appendix.
 - `robertdebock.users` creates `admin` (in `sudo`, with only the admin key, and your hashed password) and `deploy` (no password, `/bin/sh`, no groups). `tasks/deploy_access.yml` then writes the deploy key itself, root-owned and restricted to rrsync, and creates `/srv/sites`. The users role is not given the deploy key because it would make `.ssh` owned by `deploy`, which would let a stolen deploy key rewrite its own restrictions.
 
 ### What the stricter umask changes
@@ -309,12 +309,12 @@ laptop$ rsync -rlt --chmod=D755,F644 -e "ssh -i ~/.ssh/gradus-prod-deploy-id_ed2
 admin$ ls -l /srv/sites/test/ && sudo rm -r /srv/sites/test
 ```
 
-## As admin: run base.yml, which removes initial
+## As admin: run RESOLVE-base.yml, which removes initial
 
 Take a snapshot first if Ex2 offers them. Then log out of every `initial` session and run, as `admin`:
 
 ```sh
-laptop$ ansible-playbook base.yml -K --ask-vault-pass
+laptop$ ansible-playbook RESOLVE-base.yml -K --ask-vault-pass
 ```
 
 `-K` is now the `admin` password. It connects with `~/.ssh/gradus-prod-admin-id_ed25519` (`admin_ssh_key`).
@@ -325,7 +325,7 @@ It refuses to run as anyone but `admin`. It installs the firewall, sshguard, una
 
 Note: The audit did its job and caught a real public listener the plan didn’t know about: `systemd-resolved` answering LLMNR (Link-Local Multicast Name Resolution) on port 5355, on every interface, over TCP and UDP. The Incus Debian 13 image uses systemd-resolved, and Ex2’s image may too.
 
-The server only needs resolved’s loopback DNS stub, which the audit already allowed. So  LLMNR and multicast DNS are turned off in `base.yml` rather than loosen the audit. This was done in version v0.3.2.
+The server only needs resolved’s loopback DNS stub, which the audit already allowed. So  LLMNR and multicast DNS are turned off in `RESOLVE-base.yml` rather than loosen the audit. This was done in version v0.3.2.
 
 ```bash
 ssh -t -i ~/.ssh/gradus-prod-admin-id_ed25519 admin@10.119.134.236 'resolvectl status | grep -iE "llmnr|mdns"; sudo /usr/local/sbin/audit-listeners.sh'

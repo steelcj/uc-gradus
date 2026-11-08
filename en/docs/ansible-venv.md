@@ -99,11 +99,11 @@ Activating per shell is deliberate. Putting the environment's `bin` directory on
 The collections come inside the `ansible` package, so nothing extra is needed for them. With the environment active, from `ansible/`:
 
 ```sh
-ansible-galaxy install -r requirements.yml
+ansible-galaxy install -r RESOLVE-requirements.yml
 ansible-galaxy collection list | grep -E 'ansible.posix|community.general'
 ```
 
-The first command fetches the two Robert de Bock roles from GitHub into `ansible/roles/` (set by `roles_path` in `ansible.cfg`, and ignored by git). For the collections it reports "Nothing to do. All requested collections are already installed", because the bundled ones satisfy `requirements.yml`, so it does not contact Galaxy for them. The second command shows them living in the environment's `site-packages`.
+The first command fetches the two Robert de Bock roles from GitHub into `ansible/roles/` (set by `roles_path` in `ansible.cfg`, and ignored by git). For the collections it reports "Nothing to do. All requested collections are already installed", because the bundled ones satisfy `RESOLVE-requirements.yml`, so it does not contact Galaxy for them. The second command shows them living in the environment's `site-packages`.
 
 The roles are tied to the repo rather than to the environment, so switching Ansible releases does not touch them.
 
@@ -120,7 +120,7 @@ Then:
 1. Change the pin in `ansible/controller-requirements.txt`, for example to `ansible==14.6.0`.
 2. Run `./tools/make-ansible-venv.sh`. It builds `~/.venvs/ansible/14.6.0/ansible` next to the existing one and moves `current` to it.
 3. Open a new shell (or `deactivate` and activate again) and confirm `ansible --version`.
-4. Run the rehearsal in `docs/incus-testing.md` against a fresh test instance, including the second `base.yml` run that should report `changed=0`.
+4. Run the rehearsal in `docs/incus-testing.md` against a fresh test instance, including the second `RESOLVE-base.yml` run that should report `changed=0`.
 5. Compare `~/.venvs/ansible/14.5.0/pip-freeze.txt` with the new one if anything behaves differently; the bundled collection versions are listed there.
 
 To roll back, point `current` at the previous release:
