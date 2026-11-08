@@ -1,0 +1,28 @@
+---
+# The deploy key is managed here, not by robertdebock.users, because the
+# users role writes authorized_keys owned by the user. Here .ssh and the key
+# file are root-owned, so a stolen deploy key cannot rewrite its own restrictions.
+
+- name: Deploy .ssh is root-owned
+  ansible.builtin.file:
+    path: "/home/{{ deploy_user }}/.ssh"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy key restricted to rrsync on the sites root
+  ansible.builtin.template:
+    src: deploy_authorized_keys.j2
+    dest: "/home/{{ deploy_user }}/.ssh/authorized_keys"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Sites root owned by deploy, readable by Caddy
+  ansible.builtin.file:
+    path: "{{ sites_root }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0755"

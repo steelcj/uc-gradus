@@ -1,0 +1,49 @@
+#cloud-config
+# First-boot identity only: hostname, admin user, admin key, sshd lockdown.
+# Everything else is done by ansible/base.yml so it can be re-run and audited.
+# Use this only if Ex2 accepts cloud-init user-data; otherwise use bootstrap/bootstrap.sh.
+
+hostname: web1
+fqdn: web1.example.org
+manage_etc_hosts: true
+
+# Root gets no SSH access, and no password login over SSH for anyone.
+disable_root: true
+ssh_pwauth: false
+
+# Listing users without "default" suppresses the image's stock "debian" user.
+users:
+  - name: admin
+    groups: [sudo]
+    shell: /bin/bash
+    # A password is still needed for sudo and for the provider console,
+    # never for SSH. Generate with: mkpasswd -m yescrypt
+    lock_passwd: false
+    hashed_passwd: "$y$REPLACE_WITH_YESCRYPT_HASH"
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAREPLACE_ADMIN_PUBLIC_KEY admin@laptop
+
+package_update: true
+package_upgrade: true
+packages:
+  - sudo
+  - python3
+  - rsync
+
+# Lock sshd down from the first boot. Ansible replaces this file with the full
+# hardening drop-in later. "10-" sorts before cloud-init's own "50-cloud-init.conf",
+# and sshd keeps the first value it reads, so these settings win.
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-hardening.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      AuthenticationMethods publickey
+      AllowUsers admin
+
+runcmd:
+  - [passwd, --lock, root]
+  - [systemctl, restart, ssh]

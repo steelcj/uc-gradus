@@ -1,0 +1,2 @@
+# Managed by Ansible (ex2-base). Root-owned so the deploy user cannot change it.
+restrict,{% if deploy_from %}from="{{ deploy_from }}",{% endif %}command="/usr/bin/rrsync {{ sites_root }}" {{ deploy_pubkey }}

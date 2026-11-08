@@ -1,0 +1,27 @@
+---
+# Umask policy: 027 by default, private home directories.
+# Must run before any permanent user is created, since useradd reads it.
+
+- name: Default umask 027
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^UMASK\s'
+    line: "UMASK\t\t027"
+
+- name: New home directories 0700
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^HOME_MODE\s'
+    line: "HOME_MODE\t0700"
+
+- name: pam_umask applies the umask at login
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-session
+    regexp: 'pam_umask\.so'
+    line: "session optional pam_umask.so"
+
+- name: adduser makes private homes too
+  ansible.builtin.lineinfile:
+    path: /etc/adduser.conf
+    regexp: '^#?DIR_MODE='
+    line: "DIR_MODE=0700"

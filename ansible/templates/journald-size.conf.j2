@@ -1,0 +1,6 @@
+# Managed by Ansible (ex2-base).
+[Journal]
+Storage=persistent
+SystemMaxUse={{ journald_max_use }}
+SystemKeepFree=1G
+MaxRetentionSec={{ journald_max_retention }}

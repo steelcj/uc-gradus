@@ -1,0 +1,71 @@
+---
+# First Ansible run, as the temporary "initial" user (see docs/initial-setup.md).
+# Sets the umask policy, then creates the permanent admin and deploy users.
+#
+#   ansible-galaxy install -r requirements.yml
+#   ansible-playbook bootstrap.yml -u initial -K
+#
+# Afterwards, confirm admin can log in and sudo, then run base.yml as admin.
+# base.yml locks SSH to admin and deploy and deletes the initial user.
+
+- name: Bootstrap as the initial user
+  hosts: web
+  become: true
+  # robertdebock.bootstrap gathers facts itself, after making sure Python is present.
+  gather_facts: false
+  vars:
+    # Play vars outrank group_vars, so this run uses the initial key.
+    ansible_ssh_private_key_file: "{{ initial_ssh_key }}"
+    # robertdebock.bootstrap assumes it connects as root and defaults to no
+    # sudo for its package task, whatever the play says. We connect as initial.
+    bootstrap_become: true
+
+  pre_tasks:
+    - name: Refuse to run with placeholder keys
+      ansible.builtin.assert:
+        that:
+          - "'REPLACE' not in admin_pubkey"
+          - "'REPLACE' not in deploy_pubkey"
+          - admin_pubkey.split()[1] != deploy_pubkey.split()[1]
+          - "'REPLACE' not in admin_password_hash"
+        fail_msg: "Set real admin and deploy public keys (different keypairs) and the admin password hash."
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+  tasks:
+    # Ensures python3, sudo, gnupg and python3-apt, which the apt module needs.
+    # Its first steps run without sudo by design; only the package install escalates.
+    - name: Prepare the host for Ansible
+      ansible.builtin.include_role:
+        name: robertdebock.bootstrap
+
+    - name: Require Debian 13
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Debian"
+          - ansible_facts.distribution_major_version == "13"
+        fail_msg: "This base targets Debian 13 (trixie) only."
+
+    - name: rsync, which ships rrsync for the deploy key
+      ansible.builtin.apt:
+        name: rsync
+        state: present
+        install_recommends: false
+
+    - name: Umask policy, before any permanent user exists
+      ansible.builtin.include_tasks: tasks/umask.yml
+
+    - name: Permanent users
+      ansible.builtin.include_role:
+        name: robertdebock.users
+
+    - name: Deploy key and sites root
+      ansible.builtin.include_tasks: tasks/deploy_access.yml
+
+    - name: Next step
+      ansible.builtin.debug:
+        msg:
+          - "Test now, keeping this initial session open:"
+          - "  ssh -i ~/.ssh/gradus-prod-admin-id_ed25519 {{ admin_user }}@{{ ansible_host }} sudo -v"
+          - "Then run: ansible-playbook base.yml -K"

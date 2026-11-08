@@ -1,0 +1,331 @@
+---
+# Minimal, secure base for a static-site server on Debian 13 (trixie).
+# Idempotent: safe to re-run at any time to correct drift.
+#
+#   ansible-playbook base.yml --check --diff -K   # preview
+#   ansible-playbook base.yml -K                  # apply
+#
+# Keep the provider console open in a browser tab the first time you run it.
+
+- name: Debian 13 static-site base
+  hosts: web
+  become: true
+
+  vars:
+    # True in an Incus/LXC system container, used only for local testing.
+    is_container: >-
+      {{ ansible_facts.virtualization_role == 'guest'
+         and ansible_facts.virtualization_type in ['lxc', 'container', 'systemd-nspawn'] }}
+
+  pre_tasks:
+    - name: Require Debian 13
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Debian"
+          - ansible_facts.distribution_major_version == "13"
+        fail_msg: "This base targets Debian 13 (trixie) only."
+
+    - name: Refuse to run with placeholder keys
+      ansible.builtin.assert:
+        that:
+          - "'REPLACE' not in admin_pubkey"
+          - "'REPLACE' not in deploy_pubkey"
+          - admin_pubkey.split()[1] != deploy_pubkey.split()[1]
+        fail_msg: "Set real admin and deploy public keys, and make sure they differ."
+
+    - name: Require connecting as the admin user (AllowUsers would lock anyone else out)
+      ansible.builtin.assert:
+        that: (ansible_facts.env.SUDO_USER | default(ansible_facts.user_id)) == admin_user
+        fail_msg: "Run this playbook as {{ admin_user }}, not root."
+
+  tasks:
+    # Packages
+
+    - name: Enable trixie-backports (for a current Caddy)
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/backports.sources
+        content: |
+          Types: deb
+          URIs: http://deb.debian.org/debian
+          Suites: trixie-backports
+          Components: main
+        mode: "0644"
+      when: install_caddy
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - sudo
+          - rsync          # ships /usr/bin/rrsync
+          - python3        # needed by rrsync and Ansible
+          - nftables
+          - sshguard
+          - unattended-upgrades
+          - systemd-timesyncd
+          - apparmor
+          - ca-certificates
+        state: present
+        update_cache: true
+        install_recommends: false
+
+    - name: Install Caddy from trixie-backports
+      ansible.builtin.apt:
+        name: caddy
+        default_release: trixie-backports
+        state: latest
+        install_recommends: false
+      when: install_caddy
+
+    - name: Remove packages a file server does not need
+      ansible.builtin.apt:
+        name: "{{ forbidden_packages }}"
+        state: absent
+
+    # Umask policy and accounts (same as bootstrap.yml, kept converged here)
+
+    - name: Umask policy
+      ansible.builtin.include_tasks: tasks/umask.yml
+
+    - name: Permanent users
+      ansible.builtin.include_role:
+        name: robertdebock.users
+
+    - name: Deploy key and sites root
+      ansible.builtin.include_tasks: tasks/deploy_access.yml
+
+    - name: Root password locked
+      ansible.builtin.user:
+        name: root
+        password_lock: true
+
+    # Firewall first, so a new SSH port is open before sshd moves to it
+
+    - name: nftables ruleset
+      ansible.builtin.template:
+        src: nftables.conf.j2
+        dest: /etc/nftables.conf
+        mode: "0755"
+        validate: /usr/sbin/nft -c -f %s
+      notify: Reload nftables
+
+    - name: nftables enabled
+      ansible.builtin.systemd_service:
+        name: nftables
+        enabled: true
+        state: started
+
+    # sshd
+
+    - name: sshd hardening drop-in
+      ansible.builtin.template:
+        src: sshd-hardening.conf.j2
+        dest: /etc/ssh/sshd_config.d/10-hardening.conf
+        mode: "0644"
+        validate: /usr/sbin/sshd -t -f %s
+      notify: Restart ssh
+
+    # sshguard
+
+    - name: sshguard reads the ssh unit (OpenSSH 10 logs as sshd-session, which -t sshd misses)
+      ansible.builtin.lineinfile:
+        path: /etc/sshguard/sshguard.conf
+        regexp: "^LOGREADER="
+        line: 'LOGREADER="LANG=C /usr/bin/journalctl -afb -p info -n1 -u ssh.service -o cat"'
+      notify: Restart sshguard
+
+    - name: sshguard whitelist
+      ansible.builtin.lineinfile:
+        path: /etc/sshguard/whitelist
+        line: "{{ item }}"
+        create: true
+        mode: "0644"
+      loop: "{{ sshguard_whitelist }}"
+      notify: Restart sshguard
+
+    - name: sshguard enabled
+      ansible.builtin.systemd_service:
+        name: sshguard
+        enabled: true
+        state: started
+
+    # Updates
+
+    - name: Periodic apt runs
+      ansible.builtin.copy:
+        src: 20auto-upgrades
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        mode: "0644"
+
+    - name: unattended-upgrades policy
+      ansible.builtin.template:
+        src: 52unattended-upgrades-local.j2
+        dest: /etc/apt/apt.conf.d/52unattended-upgrades-local
+        mode: "0644"
+
+    # System basics
+
+    - name: journald drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/journald.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: journald size cap
+      ansible.builtin.template:
+        src: journald-size.conf.j2
+        dest: /etc/systemd/journald.conf.d/size.conf
+        mode: "0644"
+      notify: Restart journald
+
+    # In a container (local Incus testing) the host kernel owns the clock and
+    # AppArmor, and both units are skipped by their own systemd conditions,
+    # so only enable them there; on a VM or VPS, also start them.
+    # systemd-resolved, where the image uses it (Incus's Debian 13 does), answers
+    # LLMNR on port 5355 on every interface. The server only needs its loopback
+    # stub, so switch off the multicast name protocols.
+    - name: Check for systemd-resolved
+      ansible.builtin.stat:
+        path: /usr/lib/systemd/systemd-resolved
+      register: resolved_bin
+
+    - name: systemd-resolved drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        mode: "0755"
+      when: resolved_bin.stat.exists
+
+    - name: No LLMNR or mDNS listeners from systemd-resolved
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/no-multicast.conf
+        content: |
+          # Managed by Ansible (ex2-base). Keeps resolved on its loopback stub only.
+          [Resolve]
+          LLMNR=no
+          MulticastDNS=no
+        mode: "0644"
+      when: resolved_bin.stat.exists
+      notify: Restart systemd-resolved
+
+    - name: Time sync with systemd-timesyncd
+      ansible.builtin.systemd_service:
+        name: systemd-timesyncd
+        enabled: true
+        state: "{{ omit if is_container else 'started' }}"
+
+    - name: AppArmor enabled
+      ansible.builtin.systemd_service:
+        name: apparmor
+        enabled: true
+        state: "{{ omit if is_container else 'started' }}"
+
+    - name: Caddy enabled
+      ansible.builtin.systemd_service:
+        name: caddy
+        enabled: true
+        state: started
+      when: install_caddy
+
+    - name: Stop cloud-init from running on later boots
+      ansible.builtin.file:
+        path: /etc/cloud/cloud-init.disabled
+        state: touch
+        mode: "0644"
+        modification_time: preserve
+        access_time: preserve
+      when: disable_cloud_init
+
+    - name: Install listener audit script
+      ansible.builtin.copy:
+        src: audit-listeners.sh
+        dest: /usr/local/sbin/audit-listeners.sh
+        mode: "0755"
+
+  post_tasks:
+    - name: Apply pending handlers before auditing
+      ansible.builtin.meta: flush_handlers
+
+    - name: Look for processes of the bootstrap user
+      ansible.builtin.command: pgrep -u {{ bootstrap_user }}
+      register: bootstrap_procs
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: bootstrap_user | length > 0
+
+    - name: Bootstrap user still logged in, not removed this run
+      ansible.builtin.debug:
+        msg: "Log out every {{ bootstrap_user }} session and re-run to delete it."
+      when:
+        - bootstrap_user | length > 0
+        - bootstrap_procs.rc == 0
+
+    - name: Remove the bootstrap user (SSH no longer admits it)
+      ansible.builtin.user:
+        name: "{{ bootstrap_user }}"
+        state: absent
+        remove: true
+      when:
+        - bootstrap_user | length > 0
+        - bootstrap_procs.rc != 0
+
+    - name: Audit (skipped in --check mode)
+      when: not ansible_check_mode
+      block:
+        - name: Read effective sshd settings
+          ansible.builtin.command: /usr/sbin/sshd -T
+          register: sshd_effective
+          changed_when: false
+
+        - name: Check effective sshd settings
+          ansible.builtin.assert:
+            that:
+              - "'permitrootlogin no' in sshd_effective.stdout_lines"
+              - "'passwordauthentication no' in sshd_effective.stdout_lines"
+              - "'kbdinteractiveauthentication no' in sshd_effective.stdout_lines"
+              - "'allowusers ' ~ admin_user in sshd_effective.stdout_lines"
+              - "'allowusers ' ~ deploy_user in sshd_effective.stdout_lines"
+              - "'port ' ~ ssh_port in sshd_effective.stdout_lines"
+
+        - name: AppArmor is active in the kernel
+          ansible.builtin.command: cat /sys/module/apparmor/parameters/enabled
+          register: apparmor_state
+          changed_when: false
+          failed_when: apparmor_state.stdout != "Y"
+
+        - name: Audit listening sockets (only sshd and Caddy on public addresses)
+          ansible.builtin.command: /usr/local/sbin/audit-listeners.sh
+          register: listeners
+          changed_when: false
+          failed_when: listeners.rc != 0
+
+        - name: Listening sockets
+          ansible.builtin.debug:
+            var: listeners.stdout_lines
+
+  handlers:
+    # Handlers run in this order, whatever order they were notified in.
+    - name: Reload nftables
+      ansible.builtin.systemd_service:
+        name: nftables
+        state: reloaded
+
+    - name: Restart ssh
+      ansible.builtin.systemd_service:
+        name: ssh
+        state: restarted
+
+    - name: Restart sshguard
+      ansible.builtin.systemd_service:
+        name: sshguard
+        state: restarted
+
+    - name: Restart journald
+      ansible.builtin.systemd_service:
+        name: systemd-journald
+        state: restarted
+
+    - name: Restart systemd-resolved
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        state: restarted

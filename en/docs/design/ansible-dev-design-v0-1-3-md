@@ -1,0 +1,604 @@
+---
+Title: Ansible Design and the development bootstrap.yml playbook
+Path: en/docs/design/ansible-design-and-the-development-bootstrap-yml-playbook-v0-1-1-md
+---
+
+## Description
+
+We are working towards an OS Agnostic Ansible Setup and leveraging configuration layers to minimize work and focus on refining and improving (role) re usability and process / approach. The Universal Cake way... It is all about relationships. 
+
+## FS Layout
+
+```bash
+ansible/
+├── onboarding.yml # was bootstrap.yml
+├── caddy-server.yml # layer: Caddy only, NOT part of onboarding
+├── ansible.cfg
+├── requirements.yml
+│
+├── inventory/
+│ ├── dev/
+│ │ ├── hosts.yml
+│ │ └── group_vars/all.yml
+│ ├── stage/
+│ │ ├── hosts.yml
+│ │ └── group_vars/all.yml
+│ └── prod/
+│ ├── hosts.yml
+│ └── group_vars/all.yml
+│
+├── group_vars/
+│ └── all.yml
+│
+├── vaults/
+│ ├── dev.yml
+│ ├── stage.yml
+│ └── prod.yml
+│
+├── vault-passwords/ # gitignored
+│ ├── dev.pass
+│ ├── stage.pass
+│ └── prod.pass
+│
+├── templates/
+│ └── (empty until PR is merged or Include confirmed)
+│
+└── files/
+ └── audit-listeners.sh
+```
+
+### Why inventory-per-environment (not one file with groups)
+
+Ansible's `--limit` and `-i` flags select the environment. Each environment is a complete, self-contained inventory. This means:
+
+- Accidents are impossible. You can't `--limit prod` from a dev inventory file.
+- Group_vars are scoped. `inventory/dev/group_vars/all.yml` only applies to dev hosts.
+- Vault passwords are per-environment. A leaked dev password doesn't unlock prod.
+- The `gradus` helper picks the inventory by name: `gradus bootstrap dev` reads `inventory/dev/hosts.yml`.
+
+### inventory/dev/hosts.yml
+
+```yaml
+---
+all:
+ children:
+ web:
+ hosts:
+ gradus-test-01:
+ ansible_host: 10.10.10.5
+ ansible_user: root
+ gradus-test-02:
+ ansible_host: 10.10.10.6
+ ansible_user: root
+ vars:
+ environment: dev
+```
+
+### group_vars/all.yml (shared, top-level)
+
+```yaml
+# group_vars/all.yml
+---
+admin_user: admin
+deploy_user: deploy
+sites_root: /srv/sites
+umask_value: "027"
+```
+
+### inventory/dev/group_vars/all.yml (dev-specific)
+
+```yaml
+# inventory/dev/group_vars/all.yml
+---
+# --- Keys (dev) ---
+admin_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI_DEV_ADMIN dev-admin@laptop"
+deploy_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI_DEV_DEPLOY dev-deploy@laptop"
+admin_ssh_key: "~/.ssh/gradus-dev-admin-id_ed25519"
+
+# --- robertdebock.openssh: OVERRIDE THE INSECURE DEFAULTS ---
+openssh_permit_root_login: "no"
+openssh_password_authentication: "no"
+openssh_challenge_response_authentication: "no"
+openssh_pub_key_authentication: "yes"
+openssh_max_auth_tries: 3
+openssh_max_sessions: 10
+openssh_allow_agent_forwarding: "no"
+openssh_allow_tcp_forwarding: "no"
+openssh_x11_forwarding: "no"
+openssh_gateway_ports: "no"
+openssh_client_alive_interval: 300
+openssh_client_alive_count_max: 2
+openssh_use_pam: "yes"
+openssh_gssapi_authentication: "no"
+openssh_allow_users:
+ - admin
+ - deploy
+
+# --- robertdebock.firewall ---
+firewall_services:
+ - name: ssh
+
+# --- robertdebock.users ---
+users:
+ - name: admin
+ groups: [sudo]
+ shell: /bin/bash
+ authorized_keys:
+ - "{{ admin_pubkey }}"
+ password: "{{ admin_password_hash }}"
+ update_password: always
+ - name: deploy
+ groups: []
+ shell: /bin/sh
+ authorized_keys:
+ - 'command="/usr/bin/rrsync -wo /srv/sites",no-port-forwarding,no-X11-forwarding,no-agent-forwarding {{ deploy_pubkey }}'
+ password: "!"
+
+# --- robertdebock.ntp ---
+ntp_timezone: "America/Toronto"
+
+# --- robertdebock.fail2ban ---
+fail2ban_ban_time: 600
+fail2ban_find_time: 600
+fail2ban_max_retry: 3
+
+# --- robertdebock.umask (supplement) ---
+umask: "0027"
+umask_users:
+ - admin
+ - deploy
+
+# --- robertdebock.auto_update ---
+auto_update_package_blacklist: []
+```
+
+### vaults/dev.yml (encrypted)
+
+```yaml
+---
+admin_password_hash: "$y$j9T$DEV_HASH_HERE"
+```
+
+## requirements.yml
+
+```yaml
+---
+roles:
+ - name: robertdebock.bootstrap
+ version: 7.1.7
+ - name: robertdebock.epel
+ version: 7.0.4
+ - name: robertdebock.update
+ version: 7.2.0
+ - name: robertdebock.auto_update
+ version: 6.3.0
+ - name: robertdebock.cron
+ version: 5.2.1
+ - name: robertdebock.ntp
+ version: 7.1.0
+ - name: robertdebock.openssh
+ version: 10.1.0
+ - name: robertdebock.fail2ban
+ version: 7.1.0
+ - name: robertdebock.firewall
+ version: 6.2.0
+ - name: robertdebock.umask
+ version: 5.1.0
+ - name: robertdebock.users
+ version: 10.1.3
+
+collections:
+ - name: ansible.posix
+ version: 1.6.3
+ - name: community.general
+ version: 9.5.0
+```
+
+## onboarding.yml
+
+```yaml
+#!/usr/bin/env ansible-playbook
+---
+# onboarding.yml — Bring a raw node into the fleet.
+#
+# Defines the Ansible interface: admin user exists, SSH works key-only,
+# firewall is up, Python is ready. After this playbook, every node
+# looks the same regardless of origin (VPS, VM, container, metal).
+#
+# Idempotent. Distro-agnostic. Converges to policy or fails loudly.
+#
+# First run (as root/OOB user):
+# ansible-playbook -i inventory/dev onboarding.yml -u root -K
+#
+# Subsequent runs (as admin):
+# ansible-playbook -i inventory/dev onboarding.yml -K
+#
+# After this: the node speaks Ansible. Apply layers (caddy-server.yml)..
+
+- name: Define the Ansible interface
+ hosts: all
+ become: true
+ gather_facts: false
+ strategy: free
+
+ vars:
+ bootstrap_become: true
+
+ pre_tasks:
+ # --- Ensure Python exists (bootstrap prerequisite) ---
+ - name: Ensure Python and sudo
+ ansible.builtin.raw: |
+ test -x /usr/bin/python3 || {
+ apt-get update -qq
+ DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 sudo
+ }
+ changed_when: false
+ when: ansible_facts.distribution is not defined
+
+ - name: Gather facts
+ ansible.builtin.setup:
+
+ - name: Assert required inputs
+ ansible.builtin.assert:
+ that:
+ - admin_pubkey is defined
+ - deploy_pubkey is defined
+ - admin_password_hash is defined
+ fail_msg: >-
+ Missing admin_pubkey, deploy_pubkey, or admin_password_hash.
+ Ensure group_vars and vault are configured for this inventory.
+
+ # =====================================================================
+ # ROLES: distro-agnostic convergence
+ # =====================================================================
+ roles:
+ # Python, sudo, gnupg, python3-apt. Makes the node Ansible-ready.
+ - role: robertdebock.bootstrap
+
+ # EPEL repository. No-op on Debian, essential on RHEL/Fedora.
+ - role: robertdebock.epel
+
+ # Full package upgrade. Patches stale images.
+ - role: robertdebock.update
+
+ # Unattended-upgrades. Keeps the box patched automatically.
+ - role: robertdebock.auto_update
+
+ # Ensure cron is installed and running.
+ - role: robertdebock.cron
+
+ # Time sync. Installs chrony (Debian) or ntpd (RHEL).
+ - role: robertdebock.ntp
+
+ # SSH hardening. NOTE: verify role internals before enabling.
+ # See tasks/sshd_crypto.yml for what we supplement.
+ # - role: robertdebock.openssh
+
+ # Intrusion prevention. Replaces sshguard.
+ - role: robertdebock.fail2ban
+
+ # Firewall. ufw (nftables backend) on Debian, firewalld on RHEL.
+ - role: robertdebock.firewall
+
+ # Umask in ~/.bashrc. Supplement only — login.defs is the real fix.
+ - role: robertdebock.umask
+
+ # Permanent users: admin + deploy. Idempotent.
+ - role: robertdebock.users
+
+ # =====================================================================
+ # CUSTOM TASKS: what the roles can't do
+ # =====================================================================
+ tasks:
+ # --- Umask: must precede user creation (chicken-and-egg) ---
+ # The robertdebock.umask role only edits ~/.bashrc for EXISTING users.
+ # login.defs must be written BEFORE robertdebock.users creates admin/deploy.
+ # However, since users role is idempotent, on first run the home dirs
+ # may already exist with wrong perms. We fix them after.
+ - name: Umask in login.defs
+ ansible.builtin.include_tasks: tasks/login_defs_umask.yml
+
+ - name: Umask in profile.d (system-wide, all shells)
+ ansible.builtin.include_tasks: tasks/profile_d_umask.yml
+
+ - name: Ensure home dir modes are correct (fix chicken-and-egg)
+ ansible.builtin.file:
+ path: "/home/{{ item.name }}"
+ mode: "0750"
+ state: directory
+ loop: "{{ users }}"
+
+ # --- SSH crypto hardening (supplements openssh role) ---
+ - name: sshd crypto drop-in
+ ansible.builtin.include_tasks: tasks/sshd_crypto.yml
+
+ # --- Deploy access (rrsync forced command) ---
+ - name: Deploy key and sites root
+ ansible.builtin.include_tasks: tasks/deploy_access.yml
+
+ # --- Audit: verify the interface holds ---
+ - name: Install audit script
+ ansible.builtin.copy:
+ src: files/audit-listeners.sh
+ dest: /usr/local/sbin/audit-listeners.sh
+ owner: root
+ group: root
+ mode: "0755"
+
+ - name: Run audit
+ ansible.builtin.script: files/audit-listeners.sh
+ changed_when: false
+
+ # --- Handoff ---
+ - name: Interface defined
+ ansible.builtin.debug:
+ msg:
+ - "Node normalized. Interface contract holds."
+ - "Expected listeners: {{ firewall_services | map(attribute='name') | join(', ') }}"
+ - "Apply a layer: ansible-playbook -i {{ inventory_dir }} caddy-server.yml -K"
+
+ handlers:
+ - name: Reload sshd
+ ansible.builtin.systemd:
+ name: ssh
+ state: reloaded
+ listen: "reload ssh"
+
+ - name: Reload nftables
+ ansible.builtin.systemd:
+ name: nftables
+ state: reloaded
+ listen: "reload firewall"
+
+ - name: Restart fail2ban
+ ansible.builtin.systemd:
+ name: fail2ban
+ state: restarted
+ listen: "restart ids"
+```
+
+## tasks/login_defs_umask.yml
+
+CAN THIS BE REPLACED BY USING A BETTER ORDER OF OPERATIONS AND THIS ROLE: https://github.com/robertdebock/ansible-role-umask
+
+```yaml
+---
+# Writes UMASK 027 to /etc/login.defs.
+# Must run BEFORE robertdebock.users creates admin/deploy,
+# so their home directories get mode 0750 from useradd.
+#
+# On re-runs where users already exist, this is still correct:
+# login.defs affects future useradd calls, and the file
+# chmod task in bootstrap.yml fixes existing homes.
+
+- name: Set UMASK in login.defs
+ ansible.builtin.lineinfile:
+ path: /etc/login.defs
+ regexp: '^UMASK\s'
+ line: 'UMASK {{ umask_value }}'
+ backup: true
+```
+
+## tasks/profile_d_umask.yml
+
+```yaml
+---
+# System-wide runtime umask for all login shells.
+# Covers bash, sh, zsh — anything that sources /etc/profile.
+
+- name: Write /etc/profile.d/umask.sh
+ ansible.builtin.copy:
+ dest: /etc/profile.d/umask.sh
+ content: |
+ # UC-Gradus: enforce {{ umask_value }} for all login shells
+ umask {{ umask_value }}
+ owner: root
+ group: root
+ mode: "0644"
+```
+
+## tasks/sshd_crypto.yml
+
+CAN THIS BE DONE USING THE ROLE https://github.com/robertdebock/ansible-role-openssh
+
+```yaml
+---
+# Supplements the openssh role (or replaces it if the role
+# doesn't expose the knobs we need).
+#
+# sshd reads all files in sshd_config.d/ alphabetically and
+# keeps the FIRST value it encounters per option. The robertdebock
+# openssh role writes to sshd_config directly (to be verified),
+# so our drop-in in sshd_config.d/ sorts before it in the include
+# chain and wins.
+
+- name: Write crypto hardening drop-in
+ ansible.builtin.template:
+ src: templates/50-crypto.conf.j2
+ dest: /etc/ssh/sshd_config.d/50-crypto.conf
+ owner: root
+ group: root
+ mode: "0644"
+ validate: 'sshd -t -f %s'
+ notify: reload ssh
+```
+
+## templates/50-crypto.conf.j2
+
+```
+# UC-Gradus: SSH crypto policy
+# This file sorts after the openssh role's config (if any)
+# and before any future overrides.
+
+# Only modern algorithms
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+
+# Session limits
+MaxAuthTries 3
+MaxSessions 10
+
+# No forwarding
+AllowAgentForwarding no
+AllowTcpForwarding no
+X11Forwarding no
+GatewayPorts no
+
+# Timeout
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Environment
+AcceptEnv LANG LC_*
+```
+
+## tasks/deploy_access.yml
+
+PARTS OF THIS CAN BE DONE USING   this role : https://github.com/robertdebock/ansible-role-users
+
+```yaml
+---
+# Configures the deploy user for rrsync-only access.
+# The deploy user exists (created by robertdebock.users).
+# This task sets up the forced command and sites root.
+
+- name: Ensure sites root exists
+ ansible.builtin.file:
+ path: "{{ sites_root }}"
+ state: directory
+ owner: "{{ deploy_user }}"
+ group: www-data
+ mode: "0750"
+
+- name: Create.ssh directory for deploy
+ ansible.builtin.file:
+ path: "/home/{{ deploy_user }}/.ssh"
+ state: directory
+ owner: "{{ deploy_user }}"
+ group: "{{ deploy_user }}"
+ mode: "0700"
+
+- name: Deploy authorized_keys with rrsync forced command
+ ansible.builtin.template:
+ src: templates/deploy_authorized_keys.j2
+ dest: "/home/{{ deploy_user }}/.ssh/authorized_keys"
+ owner: root
+ group: root
+ mode: "0644"
+ # Root-owned so a stolen key can't change its own restrictions.
+```
+
+## templates/deploy_authorized_keys.j2
+
+```
+command="/usr/bin/rrsync -wo {{ sites_root }}",no-port-forwarding,no-X11-forwarding,no-agent-forwarding {{ deploy_pubkey }}
+```
+
+## files/audit-listeners.sh
+
+```sh
+#!/bin/sh
+# audit-listeners.sh — verify the interface contract.
+# Fails if any non-loopback listener is not declared.
+set -e
+
+# Base: what bootstrap promises
+ALLOWED="22/tcp"
+
+# Layers register themselves
+if [ -d /etc/uc-gradus/layers.d ]; then
+ for f in /etc/uc-gradus/layers.d/*; do
+ [ -f "$f" ] && ALLOWED="$ALLOWED $(cat "$f")"
+ done
+fi
+
+# Get actual listeners (exclude loopback)
+ACTUAL=$(ss -tlnpH 2>/dev/null \
+ | grep -v "127\.0\.0\.1\|\[::1\]" \
+ | awk '{print $4}' \
+ | sed 's/.*://' \
+ | sort -u)
+
+FAIL=0
+for port in $ACTUAL; do
+ entry="${port}/tcp"
+ if! echo "$ALLOWED" | grep -qw "$entry"; then
+ echo "UNEXPECTED LISTENER: $entry" >&2
+ FAIL=1
+ fi
+done
+
+if [ "$FAIL" -eq 1 ]; then
+ echo "Audit FAILED." >&2
+ exit 1
+fi
+
+echo "Audit passed: listeners match interface contract."
+```
+
+## The gradus helper (updated for inventory-per-env)
+
+```sh
+case "$ACTION" in
+ onboarding)
+ OOB_USER="${1:-}"
+ if [ -n "$OOB_USER" ]; then
+ ansible-playbook -i "INV" "ANSIBLE/onboarding.yml" \
+ -u "OOB_USER" -K --vault-password-file "VAULT_PASS" "${@:2}"
+ else
+ ansible-playbook -i "INV" "ANSIBLE/onboarding.yml" \
+ -K --vault-password-file "VAULT_PASS" "{@}"
+ fi
+;;
+ apply)
+ LAYER="${1:?Need layer name}"
+ ansible-playbook -i "INV" "ANSIBLE/${LAYER}.yml" \
+ -K --vault-password-file "VAULT_PASS" "{@:2}"
+;;
+ check)
+ ansible-playbook -i "INV" "ANSIBLE/onboarding.yml" \
+ -K --check --diff --vault-password-file "VAULT_PASS" "{@}"
+;;
+ verify)
+ HOSTS=(ansible -i "INV" web --list-hosts 2>/dev/null | tail -n +2)
+ for host in $HOSTS; do
+ IP=(ansible -i "INV" "$host" -m debug -a "var=ansible_host" \
+ | grep ansible_host | awk '{print $NF}')
+ "SCRIPT_DIR/test/incus/verify.sh" "IP"
+ done
+;;
+ *)
+ echo "Commands: onboarding, apply <layer>, check, verify"
+ exit 1
+;;
+esac
+```
+
+## Usage examples
+
+```sh
+gradus onboarding dev root # first run as root
+gradus onboarding dev # re-run as admin (drift check)
+gradus apply dev caddy-server # the layer
+gradus check dev # --check --diff
+gradus verify dev # from outside
+```
+
+## What's still unresolved
+
+| Question | Status |
+|---|---|
+| Does `robertdebock.openssh` write a drop-in or rewrite sshd_config? | Need to check role source before enabling it |
+| Does `robertdebock.firewall` conflict with fail2ban's nftables table? | Should not (different tables), but verify on first dev run |
+| Does `robertdebock.auto_update` handle backports origins? | Need to check; Caddy from trixie-backports needs the right origins configured |
+| `fail2ban` + OpenSSH 10 (`sshd-session` log name) | Known issue; may need jail config override |
+| Incus containers: does `robertdebock.update` trigger a reboot? | Containers don't reboot; `update` may hang waiting for it. Test first. |
+## What's still pending
+
+| Item                                               | Blocker                                                      |
+| :------------------------------------------------- | :----------------------------------------------------------- |
+| Crypto drop-in vs. role variables                  | Need to see if template preserves `Include` line             |
+| PR to robertdebock/openssh                         | Only if the template does NOT preserve Include, or we want upstream improvement |
+| Incus: does `update` role hang waiting for reboot? | Test on first dev run                                        |
+| fail2ban + OpenSSH 10 log format                   | Test on first dev run                                        |

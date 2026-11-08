@@ -1,0 +1,17 @@
+---
+# ansible-galaxy install -r requirements.yml
+# Roles come straight from GitHub at a pinned release tag, so the exact code is
+# auditable and does not depend on Galaxy being up.
+roles:
+  - name: robertdebock.bootstrap
+    src: https://github.com/robertdebock/ansible-role-bootstrap.git
+    scm: git
+    version: 7.1.7
+  - name: robertdebock.users
+    src: https://github.com/robertdebock/ansible-role-users.git
+    scm: git
+    version: 6.1.8
+
+collections:
+  - name: ansible.posix
+  - name: community.general

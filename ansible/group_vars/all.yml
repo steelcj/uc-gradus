@@ -1,0 +1,87 @@
+---
+admin_user: admin
+deploy_user: deploy
+sites_root: /srv/sites
+
+# 22 is the default. Another port cuts log noise but adds no real security.
+# Change it in one run, then set ansible_port in inventory.ini.
+ssh_port: 22
+
+# Public keys only. Separate keypairs: the deploy key may live in CI,
+# the admin key never does.
+admin_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG8SAPdqr+DK1NZ/iP/JDRVl2kBZ5UoUjvAtSBac4qSZ admin@laptop"
+deploy_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC0706vZ9wovUj2+HEPf0x9Cnqaga27BNdnoV/UCX9V9 deploy@ci"
+
+# Private keys on the laptop for each phase. base.yml connects as admin with
+# admin_ssh_key; bootstrap.yml overrides this with initial_ssh_key.
+#initial_ssh_key: ~/.ssh/gradus-raw-initial-id_ed25519
+#admin_ssh_key: ~/.ssh/gradus-prod-admin-id_ed25519
+admin_ssh_key: ~/.ssh/gradus-prod-admin-id_ed25519
+
+ansible_ssh_private_key_file: "{{ admin_ssh_key }}"
+
+# Admin password hash, for sudo and the provider console only, never SSH.
+# The real value lives in group_vars/web/vault.yml (ansible-vault), which
+# overrides this placeholder. Create it with:
+#   mkpasswd -m yescrypt
+#   ansible-vault create group_vars/web/vault.yml
+#     admin_password_hash: '$y$...'
+admin_password_hash: "REPLACE_WITH_YESCRYPT_HASH"
+
+# Temporary user from docs/initial-setup.md. base.yml deletes it once
+# it is no longer logged in. Set to "" if you did not use one.
+bootstrap_user: initial
+
+# Permanent users, created by robertdebock.users in bootstrap.yml and kept
+# converged by base.yml. The deploy key is not listed here on purpose:
+# tasks/deploy_access.yml writes it root-owned with rrsync restrictions.
+users_groups: []
+users:
+  - name: "{{ admin_user }}"
+    groups: [sudo]
+    shell: /bin/bash
+    password: "{{ admin_password_hash }}"
+    update_password: on_create
+    authorized_keys:
+      - "{{ admin_pubkey }}"
+    exclusive_keys: true
+  - name: "{{ deploy_user }}"
+    # sshd runs the forced rrsync command through the login shell, so not nologin
+    shell: /bin/sh
+    password_lock: true
+
+# Optional from= limit on the deploy key: your IP and/or the CI runner's IP,
+# comma-separated, CIDR allowed. Empty means any source.
+deploy_from: ""
+
+# Addresses sshguard must never block, such as your home IP.
+sshguard_whitelist: []
+
+# unattended-upgrades
+auto_reboot: true
+auto_reboot_time: "04:30"
+
+# journald cap
+journald_max_use: 200M
+journald_max_retention: 1month
+
+# Caddy from trixie-backports. The trixie 2.6.2 package has open security issues.
+install_caddy: true
+
+# Stop cloud-init from running again on later boots once the base is in place.
+# Only enable after confirming networking survives a reboot without it.
+disable_cloud_init: false
+
+# Packages that must not be on a server that only serves files.
+forbidden_packages:
+  - build-essential
+  - gcc
+  - g++
+  - make
+  - nodejs
+  - npm
+  - mariadb-server
+  - mysql-server
+  - postgresql
+  - apache2
+  - nginx

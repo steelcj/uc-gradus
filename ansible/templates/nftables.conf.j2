@@ -1,0 +1,33 @@
+#!/usr/sbin/nft -f
+# Managed by Ansible (ex2-base).
+# Replaces only our own table instead of "flush ruleset", so sshguard's
+# tables survive a reload.
+
+table inet filter
+delete table inet filter
+
+table inet filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        ct state established,related accept
+        ct state invalid drop
+        iif "lo" accept
+
+        # ICMP: needed for path MTU discovery; ICMPv6 is required for IPv6 to work at all
+        meta l4proto icmp accept
+        meta l4proto ipv6-icmp accept
+
+        tcp dport {{ ssh_port }} ct state new accept comment "ssh"
+        tcp dport { 80, 443 } accept comment "http, https"
+        udp dport 443 accept comment "http/3 (QUIC)"
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}

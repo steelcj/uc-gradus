@@ -1,0 +1,14 @@
+// Managed by Ansible (ex2-base). Adds to Debian's 50unattended-upgrades,
+// which already covers the main and security archives (APT lists accumulate).
+{% if install_caddy %}
+Unattended-Upgrade::Origins-Pattern {
+    // Caddy comes from backports, so let backports updates through too.
+    // apt pins backports low, so only packages already installed from it upgrade.
+    "origin=Debian Backports,codename=${distro_codename}-backports,label=Debian Backports";
+};
+{% endif %}
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Automatic-Reboot "{{ 'true' if auto_reboot else 'false' }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ auto_reboot_time }}";
+Unattended-Upgrade::SyslogEnable "true";

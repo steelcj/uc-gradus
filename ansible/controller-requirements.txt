@@ -1,0 +1,4 @@
+# Python packages for the Ansible controller (your laptop), not the server.
+# The ansible version here names the venv: ~/.venvs/ansible/<version>/ansible
+# See docs/ansible-venv.md.
+ansible==14.5.0
