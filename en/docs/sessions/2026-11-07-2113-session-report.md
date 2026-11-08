@@ -429,7 +429,8 @@ Then the owner asked: "update the session reports and push all three repos". Thi
 Open items:
 
 - [ ] uc-automa: follow the `en/` move in the code (roadmap, "Later").
-- [ ] uc-automa: find out why `test_check_passes_on_uc_automa` was already failing.
+- [x] uc-automa: find out why `test_check_passes_on_uc_automa` was already failing. The owner asked: "add the failing test to the uc-automa roadmap". On the commit before the move, `uc-automa check` on uc-automa itself had 2 findings, one of them "layout/repository-layout: en-ca/docs/overviews/: not described by layout 'uc-automa'". The `overviews/` folder came in with `218bdec`. Since the move, the check has 132 findings. `uc-automa/ROADMAP.md` "Later" now has an item for it: fix the move first, then describe `overviews/` in `conf/layouts/uc-automa.yaml`.
+- [ ] uc-automa: make `test_check_passes_on_uc_automa` pass (roadmap, "Later").
 
 Open items:
 
