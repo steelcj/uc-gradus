@@ -10,7 +10,7 @@ date: 2026-11-07
 
 - Repository: `uc-gradus`, branch `main`, no commits yet, remote `https://github.com/steelcj/uc-gradus`
 - Work done: a secrets audit before publishing, fixes for the security findings, SSH key renames, an audit against the README, and decisions A (`RESOLVE-` renames), B (historical docs moved to `artifacts/`) and D (README structure extended) from that audit applied, the task prompt filed under `en/docs/sessions/`, the session method written down in `CLAUDE.md` and as a uc-processes process, and the release ceremony documented in uc-processes
-- Committed on each repository's `main` at the owner's request (section 9). Nothing was pushed.
+- Committed on each repository's `main` and pushed at the owner's request (section 9).
 
 ## 1. Secrets audit
 
@@ -397,12 +397,26 @@ Left uncommitted, because it is the owner's work in progress:
 - **uc-processes:** the `en-ca/` → `en/` move. The owner did not choose between committing only Claude's files and including the move, so only Claude's files were committed. Until the move is committed, the release process's links to `en/docs/guides/` and to other `en/docs/processes/` files don't resolve in history. The commit message says so.
 - **uc-automa:** the staged `.gitignore`, an overview rename and a new session note stay staged, and were not part of the commit.
 
-This update to the report, and the matching one to the uc-processes report, are committed separately, after the commits above.
+The report updates recording these commits are uc-gradus `eeb8cfa` and uc-processes `a6b8c10`.
+
+### Pushes
+
+The owner asked: "push all three repos". Each repository was 2 commits ahead of `origin/main` and 0 behind, so each push was a fast-forward:
+
+| Repository | Pushed | Notes |
+|---|---|---|
+| uc-gradus | `f7e96ae..eeb8cfa` | |
+| uc-processes | `206f00e..a6b8c10` | |
+| uc-automa | `20e7fad..a76b8e9` | It also carried the owner's earlier unpushed commit `218bdec`. A push hook in that repository also pushed "2 checkpoint ref(s)" |
+
+After each push, `main` and `origin/main` matched. The owner's uncommitted work stayed local.
+
+Then the owner asked: "update the session reports, commit and push them, lol". This update to both reports was committed and pushed the same way, and is not recorded again.
 
 Open items:
 
 - [ ] Commit the `en-ca/` → `en/` move in uc-processes (owner).
-- [ ] Push, when the owner decides to. Nothing has been pushed in any repository.
+- [x] Push all three repositories.
 
 ## Observations left out of scope
 
