@@ -10,7 +10,7 @@ date: 2026-11-07
 
 - Repository: `uc-gradus`, branch `main`, no commits yet, remote `https://github.com/steelcj/uc-gradus`
 - Work done: a secrets audit before publishing, fixes for the security findings, SSH key renames, an audit against the README, and decisions A (`RESOLVE-` renames), B (historical docs moved to `artifacts/`) and D (README structure extended) from that audit applied, the task prompt filed under `en/docs/sessions/`, the session method written down in `CLAUDE.md` and as a uc-processes process, and the release ceremony documented in uc-processes
-- Nothing was committed or pushed.
+- Committed on each repository's `main` at the owner's request (section 9). Nothing was pushed.
 
 ## 1. Secrets audit
 
@@ -379,6 +379,30 @@ Open items:
 
 - [ ] Decide the release key's allowed-signers principal, as a decision record in uc-automa.
 - [ ] The rest of `uc-processes/ROADMAP.md` "Later", most of which waits on uc-automa 0.3.0.
+
+## 9. Commits
+
+The owner asked: "commit the changes in all three repos". Asked whether to branch first, the owner confirmed committing to each repository's own `main`: "Do you mean the changes repo a will be in the main of repo a. If so proceed".
+
+Before committing, uc-gradus's history was checked: its initial commit `f7e96ae` (2026-11-07 21:10, by the owner) holds neither of the original password hashes. The only old value it holds is the key file name `chris_steel_personal_id_ed25519`, quoted by the secrets audit as part of finding 3.
+
+| Repository | Commit | What it holds |
+|---|---|---|
+| uc-gradus | `26e7566` Normalize to README: RESOLVE- renames, artifacts, session records, CLAUDE.md | All of this session's changes: 22 renames or moves, 11 modified files, 3 new files |
+| uc-processes | `d60b25b` Add release and Claude Code session processes, ROADMAP | Only this session's files: `CHANGELOG.md`, `ROADMAP.md`, `en/docs/processes/releasing-a-repository-v0.1.0.md`, `en/docs/processes/running-a-claude-code-session-v0.1.0.md`, and the two session files |
+| uc-automa | `a76b8e9` Roadmap: decide the allowed-signers principal before release-keys/ | Only `ROADMAP.md`, one line, committed with `git commit -- ROADMAP.md` |
+
+Left uncommitted, because it is the owner's work in progress:
+
+- **uc-processes:** the `en-ca/` → `en/` move. The owner did not choose between committing only Claude's files and including the move, so only Claude's files were committed. Until the move is committed, the release process's links to `en/docs/guides/` and to other `en/docs/processes/` files don't resolve in history. The commit message says so.
+- **uc-automa:** the staged `.gitignore`, an overview rename and a new session note stay staged, and were not part of the commit.
+
+This update to the report, and the matching one to the uc-processes report, are committed separately, after the commits above.
+
+Open items:
+
+- [ ] Commit the `en-ca/` → `en/` move in uc-processes (owner).
+- [ ] Push, when the owner decides to. Nothing has been pushed in any repository.
 
 ## Observations left out of scope
 
