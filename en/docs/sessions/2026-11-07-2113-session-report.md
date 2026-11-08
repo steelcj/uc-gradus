@@ -415,7 +415,7 @@ Then the owner asked: "update the session reports, commit and push them, lol". T
 
 Open items:
 
-- [ ] Commit the `en-ca/` → `en/` move in uc-processes (owner).
+- [x] Commit the `en-ca/` → `en/` move in uc-processes. The owner asked: "commit and push the en-ca to en move in uc-processes". It is uc-processes `25a06df`, pushed, with the README's link moved to match. The details are in uc-processes' session report.
 - [x] Push all three repositories.
 
 ## Observations left out of scope
