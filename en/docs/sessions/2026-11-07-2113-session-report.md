@@ -470,6 +470,24 @@ The owner then asked: "create a markdown report on the metadata issue". It is `u
 
 Like every other document under `en/`, it gets the known `dc:language: "en"` finding, so the check now reports 64 findings.
 
+### Decision 0040, drafted
+
+The owner pasted a draft decision for a review. The review found:
+
+- wrong descriptions of 0004 and 0007;
+- a wrong private-use table;
+- a format that would fail uc-automa's own check.
+
+It also suggested BCP 47 instead of a lookup table, and splitting the decision. The owner asked: "can you just create a markdown document for this and drop it in the correct directory please?" That became `uc-automa/en/docs/decisions/0040--language-root-per-repository-configuration-v0.1.0.md`, status Proposed. The owner then decided: "lets drop language checking altogether", and "Just drop the language check. So no, the standalone checker should not check dc:language at all. Nothing else needs to change". 0040 now says:
+
+- uc-automa's root is `en`, superseding 0004 and 0007.
+- `required: source-language` layout paths are checked against the repository's `language`.
+- `dc:language` stays required, and its value is not checked, neither by uc-automa nor by the future standalone checker.
+
+Before 0040 is accepted, its `dc:identifier` has to be replaced, because it was written by hand rather than generated with `uuidgen -r`. If the schema doesn't allow the status `Proposed`, that shows as a check finding.
+
+- [ ] uc-automa: review and accept 0040, then implement it (the roadmap's "resolve soon" items; the schema item is now "remove the pattern").
+
 Open items:
 
 - [x] Commit the `en-ca/` → `en/` move in uc-processes. The owner asked: "commit and push the en-ca to en move in uc-processes". It is uc-processes `25a06df`, pushed, with the README's link moved to match. The details are in uc-processes' session report.
