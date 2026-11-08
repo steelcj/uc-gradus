@@ -432,6 +432,30 @@ Open items:
 - [x] uc-automa: find out why `test_check_passes_on_uc_automa` was already failing. The owner asked: "add the failing test to the uc-automa roadmap". On the commit before the move, `uc-automa check` on uc-automa itself had 2 findings, one of them "layout/repository-layout: en-ca/docs/overviews/: not described by layout 'uc-automa'". The `overviews/` folder came in with `218bdec`. Since the move, the check has 132 findings. `uc-automa/ROADMAP.md` "Later" now has an item for it: fix the move first, then describe `overviews/` in `conf/layouts/uc-automa.yaml`.
 - [ ] uc-automa: make `test_check_passes_on_uc_automa` pass (roadmap, "Later").
 
+### Fixing the `en/` move in uc-automa: started, then put on the roadmap
+
+The owner asked: "fix the en/ move in uc-automa code". Three options were put to them: `en` as both the folder and the language tag, `en` as a folder that still holds `en-CA` text, or undoing the move. The owner chose: "option 1, but we need a config file for that check". On being told what the `dc:language` check is worth, they added: "I think metadata checker should be it's own stand alone repository / executable. It should include all of the resources it needs and it should be configurable", and then "go with option 1 for now".
+
+What was applied (uc-automa):
+
+- `en` throughout: the config, the 5 layouts' `source_language` and the 5 layout texts' `language`, `DEFAULT_LANGUAGE`, and the package data (`uc_automa.data.text.en`, from `en/conf`).
+- The two offerings' `en-ca/` text folders, renamed to `en/`.
+- Both `REUSE.toml` files, which now cover `en/**`.
+- All 66 `dc:language` lines, now `"en"`.
+- Two tests updated.
+
+`uc-automa check` on uc-automa went from 132 findings to 63.
+
+Two blockers turned up:
+
+- **`source-language` layout paths.** They are checked against the layout's own language, so every downstream `en-ca` repository would need `en/`. Two fixture tests fail because of it.
+- **The front-matter schema.** It requires a region code, so it rejects `en`.
+
+The owner: "do nothing, if you think this issue needs to be resolved now or very soon add it to the roadmap". Both blockers, the remaining steps and the standalone-checker direction were added under the `en/` item in `uc-automa/ROADMAP.md`, the first two marked "resolve soon". The owner then asked: "keep them, update the session reports, commit and push". So the partial changes were committed and pushed as they are, with 4 failing tests (2 before).
+
+- [ ] uc-automa: the "resolve soon" items under the `en/` move in `ROADMAP.md`.
+- [ ] uc-automa: a standalone, configurable metadata checker (roadmap).
+
 Open items:
 
 - [x] Commit the `en-ca/` → `en/` move in uc-processes. The owner asked: "commit and push the en-ca to en move in uc-processes". It is uc-processes `25a06df`, pushed, with the README's link moved to match. The details are in uc-processes' session report.
