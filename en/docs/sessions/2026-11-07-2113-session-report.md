@@ -456,6 +456,20 @@ The owner: "do nothing, if you think this issue needs to be resolved now or very
 - [ ] uc-automa: the "resolve soon" items under the `en/` move in `ROADMAP.md`.
 - [ ] uc-automa: a standalone, configurable metadata checker (roadmap).
 
+The owner then asked: "create a markdown report on the metadata issue". It is `uc-automa/en/docs/sessions/2026-11-07--metadata-language-check-v0.1.0.md`, a uc-automa session record (uc-automa 0016) covering:
+
+- how folder and tag are tied;
+- what the move broke;
+- the value of the check;
+- the owner's decisions, word for word;
+- what was made;
+- the two blockers;
+- the verification table;
+- the known debt;
+- what is left open.
+
+Like every other document under `en/`, it gets the known `dc:language: "en"` finding, so the check now reports 64 findings.
+
 Open items:
 
 - [x] Commit the `en-ca/` → `en/` move in uc-processes. The owner asked: "commit and push the en-ca to en move in uc-processes". It is uc-processes `25a06df`, pushed, with the README's link moved to match. The details are in uc-processes' session report.
