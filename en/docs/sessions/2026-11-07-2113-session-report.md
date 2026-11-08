@@ -413,6 +413,24 @@ After each push, `main` and `origin/main` matched. The owner's uncommitted work 
 
 Then the owner asked: "update the session reports, commit and push them, lol". This update to both reports was committed and pushed the same way, and is not recorded again.
 
+### Committing everything
+
+The owner asked: "lets commit everything". Only uc-processes and uc-automa had uncommitted work left:
+
+| Repository | Commit | What it holds |
+|---|---|---|
+| uc-processes | `5a38160` | The owner's *Process: Creating an Eleventy Theme* 0.1.0. `CHANGELOG.md` gained entries for it and for the `en-ca/` → `en/` move |
+| uc-automa | `c9e4ea3` | The owner's `en-ca/` → `en/` move (77 renames), the `.gitignore` change, an overview rename, a session note, and a new `ROADMAP.md` item |
+
+uc-automa's tests were run before committing: 45 tests, 1 failure on the previous commit and 2 with the move. The new failure, `test_translations_report_nothing_for_en_ca`, is because the code still uses `en-ca` as its default language. The owner's call: "sounds like a roadmap issue for updating our script". So the move was committed with the failure stated in its commit message, and `uc-automa/ROADMAP.md` "Later" gained an item: a decision record superseding 0004, then the code, tests and fixtures updated to `en/`. The other failure, `test_check_passes_on_uc_automa`, was already failing and wasn't investigated.
+
+Then the owner asked: "update the session reports and push all three repos". This update and the pushes are not recorded again.
+
+Open items:
+
+- [ ] uc-automa: follow the `en/` move in the code (roadmap, "Later").
+- [ ] uc-automa: find out why `test_check_passes_on_uc_automa` was already failing.
+
 Open items:
 
 - [x] Commit the `en-ca/` → `en/` move in uc-processes. The owner asked: "commit and push the en-ca to en move in uc-processes". It is uc-processes `25a06df`, pushed, with the README's link moved to match. The details are in uc-processes' session report.
