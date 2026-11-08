@@ -486,7 +486,33 @@ It also suggested BCP 47 instead of a lookup table, and splitting the decision. 
 
 Before 0040 is accepted, its `dc:identifier` has to be replaced, because it was written by hand rather than generated with `uuidgen -r`. If the schema doesn't allow the status `Proposed`, that shows as a check finding.
 
-- [ ] uc-automa: review and accept 0040, then implement it (the roadmap's "resolve soon" items; the schema item is now "remove the pattern").
+- [x] uc-automa: review and accept 0040, then implement it. The owner asked: "accept 0040 and implement the resolve soon items".
+
+### Decision 0040, accepted and implemented
+
+In uc-automa:
+
+- **Decisions:** 0040 is Accepted. 0004 and 0007 are Superseded, each with a "Superseded by uc-automa 0040" note.
+- **Layout check:** `conformance/layout.py` checks `required: source-language` paths against the repository's `language`.
+- **Metadata check:** `conformance/metadata.py` no longer compares `dc:language` with the root, and `language_tag()` is removed. `schemas/front-matter.schema.yaml` drops the `dc:language` pattern, and the fixture `fail/language-differs-from-root` is removed.
+- **Directives:** `metadata/front-matter` and `layout/repository-layout` are at 0.2.0, each renamed with `git mv` and given a changelog row.
+- **Generated and synced files:** `uc-automa offerings apply --yes` synced the signpost block in `CLAUDE.md`, and `uc-automa docs index` regenerated `en/docs/README.md`.
+- **Roadmap and changelog:** `ROADMAP.md` loses the `en/` move item, and `CHANGELOG.md` `[Unreleased]` records the changes.
+
+Checked:
+
+- `uc-automa check` on uc-automa: 4 findings, against 64 before.
+- Tests: 44 of 45 pass.
+- `uc-automa translations`: 0 errors.
+- A wheel build ships `uc_automa/data/text/en/` with the 5 layout texts.
+
+The remaining failure, `test_check_passes_on_uc_automa`, comes from the owner's content (the roadmap item):
+
+- `docs/overviews/` isn't in the layout;
+- a session note has no front matter and isn't a session record's name;
+- the overview's `dc:rights` differs from `REUSE.toml`.
+
+- [ ] uc-automa: clear those 4 findings (roadmap, "Later").
 
 Open items:
 
